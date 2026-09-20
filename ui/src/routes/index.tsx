@@ -191,11 +191,11 @@ function Dashboard() {
                 className="bg-transparent font-medium text-white focus:outline-none cursor-pointer text-xs pr-1"
                 aria-label="Select Financial Data Provider"
               >
-                <option value="yahoo" className="bg-slate-900 text-white">
-                  🟣 Yahoo Finance
-                </option>
                 <option value="google" className="bg-slate-900 text-white">
                   🔵 Google Finance
+                </option>
+                <option value="yahoo" className="bg-slate-900 text-white">
+                  🟣 Yahoo Finance
                 </option>
               </select>
             </div>
