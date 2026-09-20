@@ -1,0 +1,41 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Backend API Service (FastAPI)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: algo-trading-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    plan: free
+    region: oregon
+    healthCheckPath: /docs
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # ----------------------------------------------------------------------------
+  # Frontend UI Service (TanStack Start / React)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: algo-trading-ui
+    runtime: docker
+    dockerfilePath: ./ui/Dockerfile
+    dockerContext: ./ui
+    plan: free
+    region: oregon
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: algo-trading-api
+          property: host

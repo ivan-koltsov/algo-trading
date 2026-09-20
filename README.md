@@ -24,7 +24,24 @@ A full-stack algorithmic trading analysis platform featuring a high-performance 
 
 The easiest way to run the entire stack is with Docker Compose:
 
-### 1. Build and Start All Services
+### 1. One-Click Start Script
+
+You can use the provided `start.sh` script to run both services either with Docker Compose or locally:
+
+```bash
+# Start with Docker Compose (builds and runs both containers)
+./start.sh
+
+# Or start locally on host (Python FastAPI + Node/Vite concurrently)
+./start.sh --local
+
+# Show all options
+./start.sh --help
+```
+
+### 2. Manual Docker Compose
+
+Alternatively, run docker compose directly:
 
 ```bash
 docker compose up --build
@@ -36,7 +53,7 @@ To run in detached (background) mode:
 docker compose up -d --build
 ```
 
-### 2. Verify Services
+### 3. Verify Services
 
 Once the containers are up and healthy:
 
@@ -47,7 +64,7 @@ Once the containers are up and healthy:
   curl http://localhost:8000/signal/AAPL/6mo
   ```
 
-### 3. Viewing Logs
+### 4. Viewing Logs
 
 ```bash
 # Stream logs for all services
@@ -60,7 +77,7 @@ docker compose logs -f api
 docker compose logs -f ui
 ```
 
-### 4. Stopping the Services
+### 5. Stopping the Services
 
 ```bash
 # Stop containers
@@ -193,11 +210,25 @@ docker inspect --format='{{json .State.Health}}' algo-trading-ui
 
 ---
 
-## Production Deployment Recommendations
+## Deployment Options
 
-1. **Reverse Proxy (Nginx / Caddy / Traefik)**:
-   Place an SSL-terminating reverse proxy in front of both services to route traffic (e.g. `/api/*` to the FastAPI container, and `/*` to the UI container) under a single domain with HTTPS.
-2. **Cloud Containers**:
-   Both Dockerfiles are OCI-compliant and ready to deploy to services like AWS ECS / Fargate, Google Cloud Run, Azure Container Apps, or DigitalOcean App Platform.
-3. **Security**:
-   Both Docker images run under non-root unprivileged users (`appuser` UID 1000 for API, `reactapp` UID 1001 for UI).
+### Option 1: Render (1-Click Blueprint)
+The repository includes a [`render.yaml`](render.yaml) Blueprint file configuring both services:
+1. Push your repository to GitHub.
+2. Sign in to [Render](https://render.com) and click **New +** -> **Blueprint**.
+3. Connect your repository. Render will automatically build and deploy both the FastAPI backend and TanStack Start frontend.
+
+### Option 2: Railway
+1. Install Railway CLI (`npm i -g @railway/cli`) or connect GitHub on [railway.app](https://railway.app).
+2. Create two services:
+   - **API**: Root directory `/api` (uses `api/Dockerfile`)
+   - **UI**: Root directory `/ui` (uses `ui/Dockerfile`), with environment variable `VITE_API_URL` set to the API public domain.
+
+### Option 3: Cloud VPS (DigitalOcean / Hetzner / AWS EC2)
+Using the existing Docker Compose setup:
+```bash
+git clone <your-repo-url>
+cd algo-trading
+./start.sh --build
+```
+You can place a reverse proxy like Caddy, Traefik, or Nginx in front for automatic SSL termination.

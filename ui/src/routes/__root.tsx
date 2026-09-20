@@ -15,13 +15,30 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'AlgoTrading Terminal | Quantitative Signals & AI Predictions',
+      },
+      {
+        name: 'description',
+        content: 'Interactive financial trading terminal with quantitative technical indicators, crossover signals, and statistical forecasting.',
       },
     ],
     links: [
       {
         rel: 'stylesheet',
         href: appCss,
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://fonts.gstatic.com',
+        crossOrigin: 'anonymous',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
       },
     ],
   }),
@@ -30,11 +47,11 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-screen bg-[#060910] text-slate-100 font-sans antialiased selection:bg-cyan-500 selection:text-white">
         {children}
         <TanStackDevtools
           config={{
