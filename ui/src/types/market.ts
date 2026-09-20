@@ -42,6 +42,9 @@ export interface AnalysisMetrics {
 export interface AnalysisResponse {
   ticker: string
   period: string
+  source?: 'yahoo' | 'google'
+  source_name?: string
+  source_url?: string
   current_price: number
   price_change: number
   price_change_pct: number

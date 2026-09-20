@@ -15,6 +15,8 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  Database,
+  ExternalLink,
 } from 'lucide-react'
 import { FinancialChart } from '../components/FinancialChart'
 import { ForecastCards } from '../components/ForecastCards'
@@ -23,6 +25,7 @@ import type { AnalysisResponse } from '../types/market'
 export interface DashboardSearch {
   ticker?: string
   period?: string
+  source?: 'yahoo' | 'google'
   chartType?: 'candlestick' | 'line'
   showSMA?: boolean
   showForecast?: boolean
@@ -39,6 +42,7 @@ export const Route = createFileRoute('/')({
         typeof search.period === 'string' && search.period.trim()
           ? (search.period.trim() as string)
           : '6mo',
+      source: search.source === 'google' ? 'google' : 'yahoo',
       chartType: search.chartType === 'line' ? 'line' : 'candlestick',
       showSMA: search.showSMA !== false && search.showSMA !== 'false',
       showForecast: search.showForecast !== false && search.showForecast !== 'false',
@@ -73,6 +77,7 @@ function Dashboard() {
 
   const currentTicker = search.ticker || 'AAPL'
   const currentPeriod = search.period || '6mo'
+  const currentSource = search.source || 'yahoo'
   const chartType = search.chartType || 'candlestick'
   const showSMA = search.showSMA ?? true
   const showForecast = search.showForecast ?? true
@@ -83,12 +88,10 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  // Update input text when search param changes
   useEffect(() => {
     setInputTicker(currentTicker)
   }, [currentTicker])
 
-  // Helper to update search params in the URL
   const updateUrlParams = (updates: Partial<DashboardSearch>) => {
     startTransition(() => {
       navigate({
@@ -101,12 +104,10 @@ function Dashboard() {
     })
   }
 
-  // Fetch analysis data
   const fetchData = async () => {
     setLoading(true)
     setError(null)
 
-    // Detect base API URL
     const urlsToTry = [
       import.meta.env.VITE_API_URL,
       'http://localhost:8001',
@@ -116,7 +117,12 @@ function Dashboard() {
     let lastErrMsg = ''
     for (const baseUrl of urlsToTry) {
       try {
-        const res = await fetch(`${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}`)
+        const queryParams = new URLSearchParams({
+          source: currentSource,
+        })
+        const res = await fetch(
+          `${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}?${queryParams.toString()}`
+        )
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}))
           throw new Error(errBody.detail || `Server responded with ${res.status}`)
@@ -136,7 +142,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [currentTicker, currentPeriod])
+  }, [currentTicker, currentPeriod, currentSource])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -165,24 +171,47 @@ function Dashboard() {
                   LIVE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">Quantitative Signals & YFinance Forecasting</p>
+              <p className="text-[11px] text-slate-400">Quantitative Signals & Market Forecasting</p>
             </div>
           </div>
 
-          {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="relative hidden md:block w-72">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={inputTicker}
-              onChange={(e) => setInputTicker(e.target.value)}
-              placeholder="Search ticker (e.g. NVDA, BTC-USD)..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-900/90 py-2 pl-9 pr-4 text-xs text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
-            />
-          </form>
+          <div className="flex items-center gap-3">
+            {/* Provider Combobox */}
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs shadow-sm">
+              <Database className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Provider:
+              </span>
+              <select
+                value={currentSource}
+                onChange={(e) => updateUrlParams({ source: e.target.value as 'yahoo' | 'google' })}
+                className="bg-transparent font-medium text-white focus:outline-none cursor-pointer text-xs pr-1"
+                aria-label="Select Financial Data Provider"
+              >
+                <option value="yahoo" className="bg-slate-900 text-white">
+                  🟣 Yahoo Finance
+                </option>
+                <option value="google" className="bg-slate-900 text-white">
+                  🔵 Google Finance
+                </option>
+              </select>
+            </div>
+
+            {/* Search Form */}
+            <form onSubmit={handleSearchSubmit} className="relative hidden md:block w-64">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={inputTicker}
+                onChange={(e) => setInputTicker(e.target.value)}
+                placeholder="Search ticker (e.g. NVDA, BTC-USD)..."
+                className="w-full rounded-xl border border-slate-800 bg-slate-900/90 py-2 pl-9 pr-4 text-xs text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+              />
+            </form>
+          </div>
         </div>
 
-        {/* Ticker Presets & Mobile Search Bar */}
+        {/* Ticker Presets & Period Switcher */}
         <div className="border-t border-slate-800/40 bg-slate-950/40 px-4 py-2 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
             {/* Quick Chips */}
@@ -243,7 +272,7 @@ function Dashboard() {
             </div>
             <div className="text-center">
               <h3 className="text-sm font-semibold text-slate-200">
-                Fetching Technical Analysis for {currentTicker}...
+                Fetching Analysis from {currentSource === 'google' ? 'Google Finance' : 'Yahoo Finance'} for {currentTicker}...
               </h3>
               <p className="text-xs text-slate-400">Computing moving averages and predicting future price path</p>
             </div>
@@ -265,10 +294,10 @@ function Dashboard() {
                 Retry
               </button>
               <button
-                onClick={() => updateUrlParams({ ticker: 'AAPL', period: '6mo' })}
+                onClick={() => updateUrlParams({ ticker: 'AAPL', period: '6mo', source: 'yahoo' })}
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-all"
               >
-                Reset to AAPL
+                Reset to AAPL (Yahoo)
               </button>
             </div>
           </div>
@@ -303,6 +332,21 @@ function Dashboard() {
                   <span className="text-slate-400 font-mono">
                     ({isPricePositive ? '+' : ''}${data.price_change.toFixed(2)} in {data.period})
                   </span>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    Provider: <strong className="text-slate-200">{data.source_name || 'Yahoo Finance'}</strong>
+                  </span>
+                  {data.source_url && (
+                    <a
+                      href={data.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 hover:underline"
+                    >
+                      Official Page <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -549,8 +593,8 @@ function Dashboard() {
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-[#060910] px-4 py-4 text-center text-xs text-slate-400">
         <p>
-          AlgoTrading Platform &bull; Real-time technical signals & quantitative Monte Carlo/Brownian forecasting &bull;{' '}
-          <span className="text-slate-400">URL stores analytical state for sharing</span>
+          AlgoTrading Platform &bull; Data from {data?.source_name || 'Yahoo & Google Finance'} &bull;{' '}
+          <span className="text-slate-400">All analytical filters & providers stored in URL for sharing</span>
         </p>
       </footer>
     </div>
