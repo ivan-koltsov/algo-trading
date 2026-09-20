@@ -1,0 +1,16 @@
+#!/bin/sh
+# Git pre-commit hook to prevent direct commits to protected branches (main, master).
+# Development workflow: Commit to 'dev' branch, verify, and open a Pull Request to 'main'.
+
+current_branch=$(git symbolic-ref --short -q HEAD)
+
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
+    echo "================================================================"
+    echo "❌ ERROR: Direct commit to protected branch '$current_branch' is blocked!"
+    echo "👉 Workflow rule: Always commit to 'dev' branch first."
+    echo "   Once verified, create a Pull Request from 'dev' to '$current_branch'."
+    echo "================================================================"
+    exit 1
+fi
+
+exit 0

@@ -15,18 +15,27 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  Database,
+  ExternalLink,
+  Target,
+  Brain,
+  Calculator,
+  Award,
 } from 'lucide-react'
 import { FinancialChart } from '../components/FinancialChart'
 import { ForecastCards } from '../components/ForecastCards'
-import type { AnalysisResponse } from '../types/market'
+import type { AnalysisResponse, ProviderSource } from '../types/market'
 
 export interface DashboardSearch {
   ticker?: string
   period?: string
+  source?: ProviderSource
   chartType?: 'candlestick' | 'line'
   showSMA?: boolean
   showForecast?: boolean
 }
+
+const VALID_SOURCES: ProviderSource[] = ['google', 'yahoo', 'tipranks', 'wallstreet', 'fmp', 'danelfin']
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): DashboardSearch => {
@@ -39,6 +48,9 @@ export const Route = createFileRoute('/')({
         typeof search.period === 'string' && search.period.trim()
           ? (search.period.trim() as string)
           : '6mo',
+      source: VALID_SOURCES.includes(search.source as ProviderSource)
+        ? (search.source as ProviderSource)
+        : 'google',
       chartType: search.chartType === 'line' ? 'line' : 'candlestick',
       showSMA: search.showSMA !== false && search.showSMA !== 'false',
       showForecast: search.showForecast !== false && search.showForecast !== 'false',
@@ -49,13 +61,17 @@ export const Route = createFileRoute('/')({
 
 const POPULAR_TICKERS = [
   { symbol: 'AAPL', label: 'Apple' },
-  { symbol: 'NVDA', label: 'Nvidia' },
+  { symbol: 'AMZN', label: 'Amazon' },
+  { symbol: 'AMD', label: 'AMD' },
+  { symbol: 'BYD', label: 'BYD' },
+  { symbol: 'GOOG', label: 'Google' },
+  { symbol: 'META', label: 'Meta' },
   { symbol: 'MSFT', label: 'Microsoft' },
+  { symbol: 'NVDA', label: 'Nvidia' },
   { symbol: 'TSLA', label: 'Tesla' },
   { symbol: 'BTC-USD', label: 'Bitcoin' },
   { symbol: 'ETH-USD', label: 'Ethereum' },
   { symbol: 'SPY', label: 'S&P 500' },
-  { symbol: 'AMZN', label: 'Amazon' },
 ]
 
 const PERIOD_OPTIONS = [
@@ -73,6 +89,7 @@ function Dashboard() {
 
   const currentTicker = search.ticker || 'AAPL'
   const currentPeriod = search.period || '6mo'
+  const currentSource = search.source || 'yahoo'
   const chartType = search.chartType || 'candlestick'
   const showSMA = search.showSMA ?? true
   const showForecast = search.showForecast ?? true
@@ -83,12 +100,10 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
-  // Update input text when search param changes
   useEffect(() => {
     setInputTicker(currentTicker)
   }, [currentTicker])
 
-  // Helper to update search params in the URL
   const updateUrlParams = (updates: Partial<DashboardSearch>) => {
     startTransition(() => {
       navigate({
@@ -101,12 +116,10 @@ function Dashboard() {
     })
   }
 
-  // Fetch analysis data
   const fetchData = async () => {
     setLoading(true)
     setError(null)
 
-    // Detect base API URL
     const urlsToTry = [
       import.meta.env.VITE_API_URL,
       'http://localhost:8001',
@@ -116,7 +129,12 @@ function Dashboard() {
     let lastErrMsg = ''
     for (const baseUrl of urlsToTry) {
       try {
-        const res = await fetch(`${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}`)
+        const queryParams = new URLSearchParams({
+          source: currentSource,
+        })
+        const res = await fetch(
+          `${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}?${queryParams.toString()}`
+        )
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}))
           throw new Error(errBody.detail || `Server responded with ${res.status}`)
@@ -136,7 +154,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [currentTicker, currentPeriod])
+  }, [currentTicker, currentPeriod, currentSource])
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -165,24 +183,59 @@ function Dashboard() {
                   LIVE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">Quantitative Signals & YFinance Forecasting</p>
+              <p className="text-[11px] text-slate-400">Quantitative Signals & Market Forecasting</p>
             </div>
           </div>
 
-          {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="relative hidden md:block w-72">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={inputTicker}
-              onChange={(e) => setInputTicker(e.target.value)}
-              placeholder="Search ticker (e.g. NVDA, BTC-USD)..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-900/90 py-2 pl-9 pr-4 text-xs text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
-            />
-          </form>
+          <div className="flex items-center gap-3">
+            {/* Provider Combobox */}
+            <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs shadow-sm">
+              <Database className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Provider:
+              </span>
+              <select
+                value={currentSource}
+                onChange={(e) => updateUrlParams({ source: e.target.value as ProviderSource })}
+                className="bg-transparent font-medium text-white focus:outline-none cursor-pointer text-xs pr-1"
+                aria-label="Select Financial Data Provider"
+              >
+                <option value="google" className="bg-slate-900 text-white">
+                  🔵 Google Finance
+                </option>
+                <option value="yahoo" className="bg-slate-900 text-white">
+                  🟣 Yahoo Finance
+                </option>
+                <option value="tipranks" className="bg-slate-900 text-white">
+                  🎯 TipRanks Analysts
+                </option>
+                <option value="wallstreet" className="bg-slate-900 text-white">
+                  🏛️ Wall Street Consensus
+                </option>
+                <option value="fmp" className="bg-slate-900 text-white">
+                  📊 FMP Valuation & DCF
+                </option>
+                <option value="danelfin" className="bg-slate-900 text-white">
+                  🤖 Danelfin AI Quant
+                </option>
+              </select>
+            </div>
+
+            {/* Search Form */}
+            <form onSubmit={handleSearchSubmit} className="relative hidden md:block w-64">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={inputTicker}
+                onChange={(e) => setInputTicker(e.target.value)}
+                placeholder="Search ticker (e.g. NVDA, BTC-USD)..."
+                className="w-full rounded-xl border border-slate-800 bg-slate-900/90 py-2 pl-9 pr-4 text-xs text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all font-mono"
+              />
+            </form>
+          </div>
         </div>
 
-        {/* Ticker Presets & Mobile Search Bar */}
+        {/* Ticker Presets & Period Switcher */}
         <div className="border-t border-slate-800/40 bg-slate-950/40 px-4 py-2 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
             {/* Quick Chips */}
@@ -196,11 +249,10 @@ function Dashboard() {
                   <button
                     key={item.symbol}
                     onClick={() => updateUrlParams({ ticker: item.symbol })}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${
-                      isActive
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                        : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/60'
-                    }`}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${isActive
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/60'
+                      }`}
                   >
                     {item.symbol}
                   </button>
@@ -217,11 +269,10 @@ function Dashboard() {
                   <button
                     key={p.value}
                     onClick={() => updateUrlParams({ period: p.value })}
-                    className={`rounded-lg px-2.5 py-0.5 text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`rounded-lg px-2.5 py-0.5 text-xs font-medium transition-all ${isActive
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     {p.label}
                   </button>
@@ -243,7 +294,7 @@ function Dashboard() {
             </div>
             <div className="text-center">
               <h3 className="text-sm font-semibold text-slate-200">
-                Fetching Technical Analysis for {currentTicker}...
+                Fetching Analysis from {currentSource === 'google' ? 'Google Finance' : 'Yahoo Finance'} for {currentTicker}...
               </h3>
               <p className="text-xs text-slate-400">Computing moving averages and predicting future price path</p>
             </div>
@@ -265,10 +316,10 @@ function Dashboard() {
                 Retry
               </button>
               <button
-                onClick={() => updateUrlParams({ ticker: 'AAPL', period: '6mo' })}
+                onClick={() => updateUrlParams({ ticker: 'AAPL', period: '6mo', source: 'yahoo' })}
                 className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-all"
               >
-                Reset to AAPL
+                Reset to AAPL (Yahoo)
               </button>
             </div>
           </div>
@@ -293,9 +344,8 @@ function Dashboard() {
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs">
                   <span
-                    className={`inline-flex items-center font-mono font-semibold ${
-                      isPricePositive ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
+                    className={`inline-flex items-center font-mono font-semibold ${isPricePositive ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
                   >
                     {isPricePositive ? '+' : ''}
                     {data.price_change_pct.toFixed(2)}%
@@ -303,6 +353,21 @@ function Dashboard() {
                   <span className="text-slate-400 font-mono">
                     ({isPricePositive ? '+' : ''}${data.price_change.toFixed(2)} in {data.period})
                   </span>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                  <span>
+                    Provider: <strong className="text-slate-200">{data.source_name || 'Yahoo Finance'}</strong>
+                  </span>
+                  {data.source_url && (
+                    <a
+                      href={data.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 hover:underline"
+                    >
+                      Official Page <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -314,13 +379,12 @@ function Dashboard() {
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <div
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-base font-bold shadow-lg ${
-                      data.metrics.latest_signal === 1
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-emerald-500/20'
-                        : data.metrics.latest_signal === -1
-                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-rose-500/20'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-amber-500/20'
-                    }`}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-base font-bold shadow-lg ${data.metrics.latest_signal === 1
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-emerald-500/20'
+                      : data.metrics.latest_signal === -1
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-rose-500/20'
+                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-amber-500/20'
+                      }`}
                   >
                     {data.metrics.latest_signal === 1 ? (
                       <TrendingUp className="h-5 w-5 animate-bounce" />
@@ -382,6 +446,139 @@ function Dashboard() {
               </div>
             </div>
 
+            {/* Specialized Provider Intelligence Panel */}
+            {data.provider_insights && (
+              data.provider_insights.analyst_consensus ||
+              data.provider_insights.valuation_dcf ||
+              data.provider_insights.ai_prediction
+            ) && (
+                <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-cyan-950/20 p-4 shadow-xl backdrop-blur-xl">
+                  {/* TipRanks or Wall Street Consensus */}
+                  {data.provider_insights.analyst_consensus && (
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-cyan-500/10 p-2.5 text-cyan-400 border border-cyan-500/20">
+                          <Target className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+                              {data.source === 'tipranks' ? '🎯 TipRanks Top Analysts' : '🏛️ Wall Street Institutional Consensus'}
+                            </span>
+                            {data.provider_insights.analyst_consensus.consensus_rating && (
+                              <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-500/20">
+                                {data.provider_insights.analyst_consensus.consensus_rating}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            12-Month Price Target: <strong className="font-mono text-white text-sm">${data.provider_insights.analyst_consensus.target_mean?.toFixed(2) ?? 'N/A'}</strong>
+                            {data.provider_insights.analyst_consensus.target_mean && data.current_price > 0 && (
+                              <span className={`ml-2 font-mono font-semibold ${data.provider_insights.analyst_consensus.target_mean >= data.current_price ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                ({((data.provider_insights.analyst_consensus.target_mean - data.current_price) / data.current_price * 100).toFixed(1)}% implied upside)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs">
+                        {data.provider_insights.analyst_consensus.target_low && data.provider_insights.analyst_consensus.target_high && (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-1.5 font-mono text-slate-300">
+                            <span className="text-[10px] text-slate-400 block uppercase">Target Corridor</span>
+                            ${data.provider_insights.analyst_consensus.target_low?.toFixed(2)} - ${data.provider_insights.analyst_consensus.target_high?.toFixed(2)}
+                          </div>
+                        )}
+                        {(data.provider_insights.analyst_consensus.buy_count !== null && data.provider_insights.analyst_consensus.buy_count !== undefined && data.provider_insights.analyst_consensus.buy_count > 0) && (
+                          <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-1.5">
+                            <span className="text-emerald-400 font-bold">{data.provider_insights.analyst_consensus.buy_count} Buy</span>
+                            <span className="text-slate-600">/</span>
+                            <span className="text-amber-400 font-bold">{data.provider_insights.analyst_consensus.hold_count} Hold</span>
+                            <span className="text-slate-600">/</span>
+                            <span className="text-rose-400 font-bold">{data.provider_insights.analyst_consensus.sell_count} Sell</span>
+                          </div>
+                        )}
+                        {data.provider_insights.analyst_consensus.analyst_opinions_count && (
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-slate-400">
+                            Based on <strong className="text-white">{data.provider_insights.analyst_consensus.analyst_opinions_count}</strong> Analyst Opinions
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FMP DCF Valuation */}
+                  {data.provider_insights.valuation_dcf && (
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-400 border border-violet-500/20">
+                          <Calculator className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-violet-400">
+                              📊 Financial Modeling Prep (FMP) DCF Valuation
+                            </span>
+                            {data.provider_insights.valuation_dcf.status && (
+                              <span className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-bold text-violet-300 border border-violet-500/20">
+                                {data.provider_insights.valuation_dcf.status}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Intrinsic Fair Value: <strong className="font-mono text-white text-sm">${data.provider_insights.valuation_dcf.intrinsic_value?.toFixed(2) ?? 'N/A'}</strong>
+                            {data.provider_insights.valuation_dcf.upside_pct !== null && data.provider_insights.valuation_dcf.upside_pct !== undefined && (
+                              <span className={`ml-2 font-mono font-semibold ${data.provider_insights.valuation_dcf.upside_pct >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                ({data.provider_insights.valuation_dcf.upside_pct > 0 ? '+' : ''}{data.provider_insights.valuation_dcf.upside_pct.toFixed(1)}% valuation gap)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-[11px] text-slate-400 max-w-sm">
+                        Calculated via 5-Year Free Cash Flow Projections + Terminal Enterprise Value Discounted Cash Flow Model
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Danelfin AI Quant Score */}
+                  {data.provider_insights.ai_prediction && (
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-400 border border-emerald-500/20">
+                          <Brain className="h-5 w-5 animate-pulse" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                              🤖 Danelfin Explainable AI Stock Score
+                            </span>
+                            {data.provider_insights.ai_prediction.conviction && (
+                              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300 border border-emerald-500/30">
+                                {data.provider_insights.ai_prediction.conviction}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            Multi-Factor AI Score: <strong className="font-mono text-emerald-400 text-base">{data.provider_insights.ai_prediction.score}/10</strong>
+                            {data.provider_insights.ai_prediction.outperformance_probability_pct && (
+                              <span className="ml-2 text-slate-300">
+                                • <strong className="font-mono text-white">{data.provider_insights.ai_prediction.outperformance_probability_pct}%</strong> probability of outperforming S&P 500
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 px-3.5 py-1.5 text-xs text-emerald-300 font-medium">
+                        ✓ Technical Momentum, Fundamental Health & Sentiment Alpha
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             {/* Chart Control Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3 shadow-lg backdrop-blur-md">
               <div className="flex flex-wrap items-center gap-2">
@@ -389,22 +586,20 @@ function Dashboard() {
                 <div className="flex items-center rounded-xl border border-slate-800 bg-slate-950 p-1">
                   <button
                     onClick={() => updateUrlParams({ chartType: 'candlestick' })}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                      chartType === 'candlestick'
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${chartType === 'candlestick'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <BarChart2 className="h-3.5 w-3.5" />
                     Candlesticks
                   </button>
                   <button
                     onClick={() => updateUrlParams({ chartType: 'line' })}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                      chartType === 'line'
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${chartType === 'line'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <LineChart className="h-3.5 w-3.5" />
                     Line
@@ -414,11 +609,10 @@ function Dashboard() {
                 {/* SMA Overlay Toggle */}
                 <button
                   onClick={() => updateUrlParams({ showSMA: !showSMA })}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
-                    showSMA
-                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
-                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${showSMA
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
                 >
                   <Layers className="h-3.5 w-3.5" />
                   SMA 20 & 50
@@ -427,11 +621,10 @@ function Dashboard() {
                 {/* Forecast Overlay Toggle */}
                 <button
                   onClick={() => updateUrlParams({ showForecast: !showForecast })}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
-                    showForecast
-                      ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${showForecast
+                    ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Future Horizon
@@ -509,11 +702,10 @@ function Dashboard() {
                             <td className="py-2.5 text-slate-300">{event.time}</td>
                             <td className="py-2.5">
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                  isBuy
-                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                }`}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${isBuy
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  }`}
                               >
                                 {isBuy ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                                 {event.crossover}
@@ -549,8 +741,8 @@ function Dashboard() {
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-[#060910] px-4 py-4 text-center text-xs text-slate-400">
         <p>
-          AlgoTrading Platform &bull; Real-time technical signals & quantitative Monte Carlo/Brownian forecasting &bull;{' '}
-          <span className="text-slate-400">URL stores analytical state for sharing</span>
+          AlgoTrading Platform &bull; Data from {data?.source_name || 'Yahoo & Google Finance'} &bull;{' '}
+          <span className="text-slate-400">All analytical filters & providers stored in URL for sharing</span>
         </p>
       </footer>
     </div>
