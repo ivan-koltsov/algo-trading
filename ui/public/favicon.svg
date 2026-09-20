@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="45%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <filter id="softGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  <!-- Rounded background matching app theme -->
+  <rect width="64" height="64" rx="18" fill="url(#bgGrad)" />
+  <!-- Crisp white lightning bolt with rounded joins -->
+  <path
+    d="M35.5 12.5 L20 34 H33.5 L30 51.5 L46 29.5 H33 L35.5 12.5 Z"
+    stroke="#ffffff"
+    stroke-width="4.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    filter="url(#softGlow)"
+  />
+</svg>
