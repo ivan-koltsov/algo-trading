@@ -19,6 +19,9 @@ fi
 
 API_PORT="${API_PORT:-8000}"
 UI_PORT="${UI_PORT:-3000}"
+APP_ENV="${APP_ENV:-development}"
+export APP_ENV
+export VITE_APP_ENV="$APP_ENV"
 
 # Colors for terminal output
 GREEN='\033[0;32m'
@@ -165,8 +168,9 @@ run_local() {
     UI_PID=$!
 
     echo ""
-    print_success "Stack is running!"
-    echo "  - Backend API: http://localhost:${API_PORT} (Swagger docs: http://localhost:${API_PORT}/docs)"
+    print_success "Stack is running in [${APP_ENV^^}] mode!"
+    echo "  - Environment: ${APP_ENV} (VITE_APP_ENV=${VITE_APP_ENV})"
+    echo "  - Backend API: http://localhost:${API_PORT} (Health: http://localhost:${API_PORT}/health)"
     echo "  - Frontend UI: http://localhost:${UI_PORT}"
     echo ""
     print_info "Press Ctrl+C to terminate both services."
