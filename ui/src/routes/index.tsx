@@ -53,13 +53,16 @@ export const Route = createFileRoute('/')({
 
 const POPULAR_TICKERS = [
   { symbol: 'AAPL', label: 'Apple' },
-  { symbol: 'NVDA', label: 'Nvidia' },
+  { symbol: 'AMZN', label: 'Amazon' },
+  { symbol: 'AMD', label: 'AMD' },
+  { symbol: 'GOOG', label: 'Google' },
+  { symbol: 'META', label: 'Meta' },
   { symbol: 'MSFT', label: 'Microsoft' },
+  { symbol: 'NVDA', label: 'Nvidia' },
   { symbol: 'TSLA', label: 'Tesla' },
   { symbol: 'BTC-USD', label: 'Bitcoin' },
   { symbol: 'ETH-USD', label: 'Ethereum' },
   { symbol: 'SPY', label: 'S&P 500' },
-  { symbol: 'AMZN', label: 'Amazon' },
 ]
 
 const PERIOD_OPTIONS = [
@@ -225,11 +228,10 @@ function Dashboard() {
                   <button
                     key={item.symbol}
                     onClick={() => updateUrlParams({ ticker: item.symbol })}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${
-                      isActive
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
-                        : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/60'
-                    }`}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-medium transition-all ${isActive
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                      : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800/60'
+                      }`}
                   >
                     {item.symbol}
                   </button>
@@ -246,11 +248,10 @@ function Dashboard() {
                   <button
                     key={p.value}
                     onClick={() => updateUrlParams({ period: p.value })}
-                    className={`rounded-lg px-2.5 py-0.5 text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`rounded-lg px-2.5 py-0.5 text-xs font-medium transition-all ${isActive
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     {p.label}
                   </button>
@@ -322,9 +323,8 @@ function Dashboard() {
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-xs">
                   <span
-                    className={`inline-flex items-center font-mono font-semibold ${
-                      isPricePositive ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
+                    className={`inline-flex items-center font-mono font-semibold ${isPricePositive ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
                   >
                     {isPricePositive ? '+' : ''}
                     {data.price_change_pct.toFixed(2)}%
@@ -358,13 +358,12 @@ function Dashboard() {
                 </div>
                 <div className="mt-3 flex items-center gap-3">
                   <div
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-base font-bold shadow-lg ${
-                      data.metrics.latest_signal === 1
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-emerald-500/20'
-                        : data.metrics.latest_signal === -1
-                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-rose-500/20'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-amber-500/20'
-                    }`}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-base font-bold shadow-lg ${data.metrics.latest_signal === 1
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-emerald-500/20'
+                      : data.metrics.latest_signal === -1
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-rose-500/20'
+                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-amber-500/20'
+                      }`}
                   >
                     {data.metrics.latest_signal === 1 ? (
                       <TrendingUp className="h-5 w-5 animate-bounce" />
@@ -433,22 +432,20 @@ function Dashboard() {
                 <div className="flex items-center rounded-xl border border-slate-800 bg-slate-950 p-1">
                   <button
                     onClick={() => updateUrlParams({ chartType: 'candlestick' })}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                      chartType === 'candlestick'
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${chartType === 'candlestick'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <BarChart2 className="h-3.5 w-3.5" />
                     Candlesticks
                   </button>
                   <button
                     onClick={() => updateUrlParams({ chartType: 'line' })}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${
-                      chartType === 'line'
-                        ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-medium transition-all ${chartType === 'line'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <LineChart className="h-3.5 w-3.5" />
                     Line
@@ -458,11 +455,10 @@ function Dashboard() {
                 {/* SMA Overlay Toggle */}
                 <button
                   onClick={() => updateUrlParams({ showSMA: !showSMA })}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
-                    showSMA
-                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
-                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${showSMA
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
                 >
                   <Layers className="h-3.5 w-3.5" />
                   SMA 20 & 50
@@ -471,11 +467,10 @@ function Dashboard() {
                 {/* Forecast Overlay Toggle */}
                 <button
                   onClick={() => updateUrlParams({ showForecast: !showForecast })}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
-                    showForecast
-                      ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${showForecast
+                    ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Future Horizon
@@ -553,11 +548,10 @@ function Dashboard() {
                             <td className="py-2.5 text-slate-300">{event.time}</td>
                             <td className="py-2.5">
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                  isBuy
-                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                }`}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${isBuy
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  }`}
                               >
                                 {isBuy ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                                 {event.crossover}
