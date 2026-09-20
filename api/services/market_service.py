@@ -8,6 +8,11 @@ import pandas as pd
 from .providers.base import BaseDataProvider, MarketQuote
 from .providers.yahoo import YahooFinanceProvider
 from .providers.google import GoogleFinanceProvider
+from .providers.tipranks import TipRanksProvider
+from .providers.wallstreet import WallStreetProvider
+from .providers.fmp import FmpProvider
+from .providers.danelfin import DanelfinProvider
+
 from .technical_analysis import (
     compute_technical_indicators,
     determine_market_trend,
@@ -28,19 +33,23 @@ class MarketService:
 
     def __init__(self):
         self._providers: Dict[str, BaseDataProvider] = {
-            "yahoo": YahooFinanceProvider(),
             "google": GoogleFinanceProvider(),
+            "yahoo": YahooFinanceProvider(),
+            "tipranks": TipRanksProvider(),
+            "wallstreet": WallStreetProvider(),
+            "fmp": FmpProvider(),
+            "danelfin": DanelfinProvider(),
         }
 
     def get_provider(self, source: str) -> BaseDataProvider:
-        key = source.lower().strip() if source else "yahoo"
-        return self._providers.get(key, self._providers["yahoo"])
+        key = source.lower().strip() if source else "google"
+        return self._providers.get(key, self._providers["google"])
 
     def fetch_and_calculate_signals(
         self,
         ticker: str = "AAPL",
         period: str = "6mo",
-        source: str = "yahoo",
+        source: str = "google",
     ) -> dict:
         ticker_clean = ticker.upper().strip()
         provider = self.get_provider(source)
@@ -63,14 +72,16 @@ class MarketService:
         # 3. Format historical bars
         historical = build_historical_bars(df)
 
-        # 4. Fetch real-time quote if Google Finance or provider override
+        # 4. Fetch real-time quote & provider metadata
         close_series = df["Close"].dropna()
         last_price = float(close_series.iloc[-1])
         first_price = float(close_series.iloc[0])
 
         realtime_quote: Optional[MarketQuote] = None
-        if provider.identifier == "google":
+        try:
             realtime_quote = provider.get_realtime_quote(ticker_clean)
+        except Exception:
+            pass
 
         if realtime_quote and realtime_quote.price > 0:
             last_price = float(realtime_quote.price)
@@ -109,17 +120,45 @@ class MarketService:
         )
         trend = determine_market_trend(last_sma_20, last_sma_50, last_price)
 
-        # 7. Provider metadata
-        if provider.identifier == "google":
-            source_name = "Google Finance"
-            source_url = (
-                realtime_quote.url
-                if realtime_quote and realtime_quote.url
-                else f"https://www.google.com/finance/quote/{ticker_clean}:NASDAQ"
-            )
-        else:
-            source_name = "Yahoo Finance"
-            source_url = f"https://finance.yahoo.com/quote/{ticker_clean}"
+        # 7. Provider metadata & URL
+        source_name = provider.name
+        source_url = realtime_quote.url if realtime_quote and realtime_quote.url else f"https://finance.yahoo.com/quote/{ticker_clean}"
+
+        # 8. Assemble structured provider insights
+        analyst_consensus = None
+        if realtime_quote and (realtime_quote.analyst_target_mean or realtime_quote.consensus_rating):
+            analyst_consensus = {
+                "target_mean": realtime_quote.analyst_target_mean,
+                "target_high": realtime_quote.analyst_target_high,
+                "target_low": realtime_quote.analyst_target_low,
+                "consensus_rating": realtime_quote.consensus_rating,
+                "buy_count": realtime_quote.buy_count,
+                "hold_count": realtime_quote.hold_count,
+                "sell_count": realtime_quote.sell_count,
+                "analyst_opinions_count": realtime_quote.analyst_opinions_count,
+            }
+
+        valuation_dcf = None
+        if realtime_quote and realtime_quote.dcf_intrinsic_value is not None:
+            valuation_dcf = {
+                "intrinsic_value": realtime_quote.dcf_intrinsic_value,
+                "upside_pct": realtime_quote.dcf_upside_pct,
+                "status": realtime_quote.valuation_status,
+            }
+
+        ai_prediction = None
+        if realtime_quote and realtime_quote.ai_score is not None:
+            ai_prediction = {
+                "score": realtime_quote.ai_score,
+                "outperformance_probability_pct": realtime_quote.ai_probability_pct,
+                "conviction": realtime_quote.ai_conviction,
+            }
+
+        provider_insights = {
+            "analyst_consensus": analyst_consensus,
+            "valuation_dcf": valuation_dcf,
+            "ai_prediction": ai_prediction,
+        }
 
         return {
             "ticker": ticker_clean,
@@ -144,6 +183,7 @@ class MarketService:
                 "forecast_14d": calculate_horizon_projection(target_14d, last_price),
                 "forecast_30d": calculate_horizon_projection(target_30d, last_price),
             },
+            "provider_insights": provider_insights,
             "disclaimer": (
                 "Quantitative forecasts are statistical simulations based on historical drift and "
                 "volatility and do not constitute financial advice."

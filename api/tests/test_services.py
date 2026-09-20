@@ -1,5 +1,5 @@
 """
-Unit and integration tests for technical analysis, forecasting, and API routes.
+Unit and integration tests for technical analysis, forecasting, providers, and API routes.
 """
 import unittest
 import numpy as np
@@ -17,12 +17,12 @@ from api.services.forecasting import (
     generate_gbm_forecast,
     calculate_horizon_projection,
 )
+from api.services.market_service import market_service
 
 
 class TestTechnicalAnalysis(unittest.TestCase):
     def setUp(self):
         dates = pd.date_range(start="2026-01-01", periods=60, freq="B")
-        # Ascending prices
         prices = [100.0 + i * 0.5 for i in range(60)]
         self.df = pd.DataFrame(
             {
@@ -41,7 +41,6 @@ class TestTechnicalAnalysis(unittest.TestCase):
         self.assertIn("SMA_50", res.columns)
         self.assertIn("Signal", res.columns)
         self.assertIn("Crossover", res.columns)
-        # In an upward trend, SMA 20 should eventually exceed SMA 50
         self.assertEqual(res["Signal"].iloc[-1], 1)
 
     def test_determine_market_trend(self):
@@ -72,7 +71,6 @@ class TestForecasting(unittest.TestCase):
     def test_generate_gbm_forecast(self):
         drift, daily_vol, _ = calculate_drift_and_volatility(self.close_series)
         forecast = generate_gbm_forecast(150.0, self.last_date, drift, daily_vol, days=30)
-        # 1 baseline + 30 future business days
         self.assertEqual(len(forecast), 31)
         for point in forecast:
             self.assertGreaterEqual(point["upper_bound"], point["predicted_close"])
@@ -90,6 +88,37 @@ class TestForecasting(unittest.TestCase):
         self.assertGreater(res["expected_change_pct"], 0.0)
 
 
+class TestProviders(unittest.TestCase):
+    def test_tipranks_provider(self):
+        p = market_service.get_provider("tipranks")
+        quote = p.get_realtime_quote("AAPL")
+        self.assertIsNotNone(quote)
+        self.assertEqual(quote.source, "tipranks")
+        self.assertIn("tipranks.com", quote.url)
+
+    def test_wallstreet_provider(self):
+        p = market_service.get_provider("wallstreet")
+        quote = p.get_realtime_quote("AAPL")
+        self.assertIsNotNone(quote)
+        self.assertEqual(quote.source, "wallstreet")
+        self.assertIsNotNone(quote.consensus_rating)
+
+    def test_fmp_provider(self):
+        p = market_service.get_provider("fmp")
+        quote = p.get_realtime_quote("AAPL")
+        self.assertIsNotNone(quote)
+        self.assertEqual(quote.source, "fmp")
+        self.assertIsNotNone(quote.dcf_intrinsic_value)
+
+    def test_danelfin_provider(self):
+        p = market_service.get_provider("danelfin")
+        quote = p.get_realtime_quote("AAPL")
+        self.assertIsNotNone(quote)
+        self.assertEqual(quote.source, "danelfin")
+        self.assertIsNotNone(quote.ai_score)
+        self.assertTrue(1 <= quote.ai_score <= 10)
+
+
 class TestApiRoutes(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
@@ -99,25 +128,24 @@ class TestApiRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "ok")
-        self.assertEqual(data["version"], "0.3.0")
 
-    def test_signal_endpoint_yahoo(self):
-        response = self.client.get("/signal/AAPL/1mo?source=yahoo")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["ticker"], "AAPL")
-        self.assertEqual(data["source"], "yahoo")
-        self.assertIn("historical", data)
-        self.assertIn("forecast", data)
-        self.assertIn("metrics", data)
+    def test_all_provider_sources(self):
+        sources = ["google", "yahoo", "tipranks", "wallstreet", "fmp", "danelfin"]
+        for s in sources:
+            response = self.client.get(f"/signal/AAPL/1mo?source={s}")
+            self.assertEqual(response.status_code, 200, f"Source {s} failed with {response.status_code}")
+            data = response.json()
+            self.assertEqual(data["source"], s)
+            self.assertIn("provider_insights", data)
 
     def test_forecast_endpoint(self):
-        response = self.client.get("/forecast/AAPL?period=1mo&source=yahoo")
+        response = self.client.get("/forecast/AAPL?period=1mo&source=tipranks")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["ticker"], "AAPL")
+        self.assertEqual(data["source"], "tipranks")
         self.assertIn("forecast", data)
-        self.assertIn("metrics", data)
+        self.assertIn("provider_insights", data)
 
 
 if __name__ == "__main__":

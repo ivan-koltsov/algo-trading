@@ -46,6 +46,35 @@ class ForecastMetrics(BaseModel):
     forecast_30d: HorizonProjection
 
 
+class AnalystConsensus(BaseModel):
+    target_mean: Optional[float] = None
+    target_high: Optional[float] = None
+    target_low: Optional[float] = None
+    consensus_rating: Optional[str] = None
+    buy_count: Optional[int] = None
+    hold_count: Optional[int] = None
+    sell_count: Optional[int] = None
+    analyst_opinions_count: Optional[int] = None
+
+
+class ValuationDCF(BaseModel):
+    intrinsic_value: Optional[float] = None
+    upside_pct: Optional[float] = None
+    status: Optional[str] = None
+
+
+class AIPrediction(BaseModel):
+    score: Optional[int] = None
+    outperformance_probability_pct: Optional[float] = None
+    conviction: Optional[str] = None
+
+
+class ProviderInsights(BaseModel):
+    analyst_consensus: Optional[AnalystConsensus] = None
+    valuation_dcf: Optional[ValuationDCF] = None
+    ai_prediction: Optional[AIPrediction] = None
+
+
 class SignalAnalysisResponse(BaseModel):
     ticker: str
     period: str
@@ -59,6 +88,7 @@ class SignalAnalysisResponse(BaseModel):
     historical: List[HistoricalBar]
     forecast: List[ForecastPoint]
     metrics: ForecastMetrics
+    provider_insights: Optional[ProviderInsights] = None
     disclaimer: str
 
 
@@ -71,6 +101,7 @@ class ForecastResponse(BaseModel):
     latest_date: str
     forecast: List[ForecastPoint]
     metrics: ForecastMetrics
+    provider_insights: Optional[ProviderInsights] = None
     disclaimer: str
 
 
