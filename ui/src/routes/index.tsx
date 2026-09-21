@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { FinancialChart } from '../components/FinancialChart'
 import { ForecastCards } from '../components/ForecastCards'
+import { fetchMarketSignal } from '../server/market'
 import type { AnalysisResponse, ProviderSource } from '../types/market'
 
 export interface DashboardSearch {
@@ -120,36 +121,56 @@ function Dashboard() {
     setLoading(true)
     setError(null)
 
-    const urlsToTry = [
-      import.meta.env.VITE_API_URL,
-      'http://localhost:8001',
-      'http://localhost:8000',
-    ].filter(Boolean) as string[]
-
-    let lastErrMsg = ''
-    for (const baseUrl of urlsToTry) {
-      try {
-        const queryParams = new URLSearchParams({
+    // Strategy 1: TanStack Start Server Function (runs in Node.js on UI server container)
+    // Seamlessly connects via Render private networking to backend containers
+    // (e.g. http://algo-trading-api-prod:8000 or http://algo-trading-api:8000),
+    // eliminating CORS issues, avoiding client bundle env var dependencies, and securing internal endpoints.
+    try {
+      const json = await fetchMarketSignal({
+        data: {
+          ticker: currentTicker,
+          period: currentPeriod,
           source: currentSource,
-        })
-        const res = await fetch(
-          `${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}?${queryParams.toString()}`
-        )
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}))
-          throw new Error(errBody.detail || `Server responded with ${res.status}`)
-        }
-        const json = (await res.json()) as AnalysisResponse
-        setData(json)
-        setLoading(false)
-        return
-      } catch (err: any) {
-        lastErrMsg = err.message || 'Network request failed'
-      }
-    }
+        },
+      })
+      setData(json)
+      setLoading(false)
+      return
+    } catch (serverErr: any) {
+      console.warn('Server function fetch failed, trying direct client fetch fallback:', serverErr)
 
-    setError(lastErrMsg || `Failed to fetch data for ${currentTicker}. Make sure the backend API is running.`)
-    setLoading(false)
+      // Strategy 2: Client-side direct fetch fallback (for local development or direct public endpoints)
+      const urlsToTry = [
+        import.meta.env.VITE_API_URL,
+        'http://localhost:8001',
+        'http://localhost:8000',
+      ].filter(Boolean) as string[]
+
+      let lastErrMsg = serverErr?.message || ''
+      for (const baseUrl of urlsToTry) {
+        try {
+          const queryParams = new URLSearchParams({
+            source: currentSource,
+          })
+          const res = await fetch(
+            `${baseUrl}/signal/${encodeURIComponent(currentTicker)}/${encodeURIComponent(currentPeriod)}?${queryParams.toString()}`
+          )
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}))
+            throw new Error(errBody.detail || `Server responded with ${res.status}`)
+          }
+          const json = (await res.json()) as AnalysisResponse
+          setData(json)
+          setLoading(false)
+          return
+        } catch (err: any) {
+          lastErrMsg = err.message || lastErrMsg || 'Network request failed'
+        }
+      }
+
+      setError(lastErrMsg || `Failed to fetch data for ${currentTicker}. Make sure the backend API is running.`)
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -178,10 +199,24 @@ function Dashboard() {
                 <span className="text-base font-bold tracking-tight text-white">
                   AlgoTrading <span className="text-cyan-400">Terminal</span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  LIVE
-                </span>
+                {/* Dynamic Environment Indicator */}
+                {import.meta.env.VITE_APP_ENV === 'production' ? (
+                  <span
+                    title="Production Environment (Branch: main)"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-500/20"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    PROD
+                  </span>
+                ) : (
+                  <span
+                    title="Development Environment (Branch: dev)"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 shadow-sm shadow-amber-500/20"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    DEV
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-400">Quantitative Signals & Market Forecasting</p>
             </div>

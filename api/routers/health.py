@@ -4,9 +4,9 @@ Health check router.
 from fastapi import APIRouter
 
 try:
-    from core.config import APP_TITLE, APP_VERSION
+    from core.config import APP_TITLE, APP_VERSION, APP_ENV
 except ImportError:
-    from api.core.config import APP_TITLE, APP_VERSION
+    from api.core.config import APP_TITLE, APP_VERSION, APP_ENV
 
 router = APIRouter(tags=["Health"])
 
@@ -17,4 +17,5 @@ def health_check():
         "status": "ok",
         "service": APP_TITLE,
         "version": APP_VERSION,
+        "environment": APP_ENV,
     }
