@@ -2,6 +2,7 @@
 # ==============================================================================
 # Algo Trading Platform - Start Script
 # Runs both Backend API (FastAPI) and Frontend UI (TanStack Start / React)
+# Supports Development (port 8001) and Production (port 8000) profiles.
 # ==============================================================================
 
 set -eo pipefail
@@ -17,11 +18,34 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     set +a
 fi
 
-API_PORT="${API_PORT:-8000}"
-UI_PORT="${UI_PORT:-3000}"
+# Parse CLI arguments for environment override
 APP_ENV="${APP_ENV:-development}"
+for arg in "$@"; do
+    case "$arg" in
+        --prod)
+            APP_ENV="production"
+            ;;
+        --dev)
+            APP_ENV="development"
+            ;;
+    esac
+done
+
 export APP_ENV
 export VITE_APP_ENV="$APP_ENV"
+
+# Default ports: Dev FastAPI on 8001 (matching AGENTS.md), Prod FastAPI on 8000
+if [ "$APP_ENV" = "production" ]; then
+    DEFAULT_API_PORT=8000
+else
+    DEFAULT_API_PORT=8001
+fi
+
+API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
+UI_PORT="${UI_PORT:-3000}"
+export API_PORT
+export UI_PORT
+export VITE_API_URL="http://localhost:${API_PORT}"
 
 # Colors for terminal output
 GREEN='\033[0;32m'
@@ -50,11 +74,12 @@ show_help() {
     echo "Usage: ./start.sh [MODE]"
     echo ""
     echo "Modes:"
-    echo "  --docker, -d     Run stack via Docker Compose (default if Docker daemon is running)"
-    echo "  --build, -b      Build and run stack via Docker Compose"
-    echo "  --local, -l      Run stack locally on host (Python venv + Node/Vite)"
-    echo "  --stop, -s       Stop running Docker containers"
-    echo "  --help, -h       Display this help message"
+    echo "  --dev, -l, --local  Run stack locally in Development profile (API: 8001, UI: 3000) [default]"
+    echo "  --prod              Run stack locally in Production profile (API: 8000, UI: 3000)"
+    echo "  --docker, -d        Run stack via Docker Compose"
+    echo "  --build, -b         Build and run stack via Docker Compose"
+    echo "  --stop, -s          Stop running Docker containers"
+    echo "  --help, -h          Display this help message"
     echo ""
 }
 
@@ -74,15 +99,15 @@ run_docker() {
     print_info "Checking Docker daemon status..."
 
     if ! docker info >/dev/null 2>&1; then
-        print_error "Docker daemon is not running. Please start Docker Desktop or use './start.sh --local'."
+        print_error "Docker daemon is not running. Please start Docker Desktop or use './start.sh --dev'."
         exit 1
     fi
 
     if [ "$build_flag" = true ]; then
-        print_info "Building and starting containers with Docker Compose..."
+        print_info "Building and starting containers with Docker Compose in [${APP_ENV^^}] mode..."
         docker compose up --build
     else
-        print_info "Starting containers with Docker Compose..."
+        print_info "Starting containers with Docker Compose in [${APP_ENV^^}] mode..."
         docker compose up
     fi
 }
@@ -96,14 +121,18 @@ stop_docker() {
 
 # Run locally on host
 run_local() {
-    print_info "Starting Algo Trading stack locally..."
+    print_info "Starting Algo Trading stack locally in [${APP_ENV^^}] mode..."
 
     # Check ports
     if check_port "$API_PORT"; then
-        print_warn "Port $API_PORT is already in use. Please terminate the process or configure API_PORT in .env."
+        local api_pid
+        api_pid=$(lsof -Pi :"$API_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)
+        print_warn "Port $API_PORT is already in use (PID ${api_pid}). Please terminate the process or configure API_PORT."
     fi
     if check_port "$UI_PORT"; then
-        print_warn "Port $UI_PORT is already in use. Please terminate the process or configure UI_PORT in .env."
+        local ui_pid
+        ui_pid=$(lsof -Pi :"$UI_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)
+        print_warn "Port $UI_PORT is already in use (PID ${ui_pid}). Please terminate the process or configure UI_PORT."
     fi
 
     # Determine Python / Uvicorn runner
@@ -155,23 +184,23 @@ run_local() {
     trap cleanup SIGINT SIGTERM EXIT
 
     # Start Backend API
-    print_info "Starting Backend API on http://localhost:${API_PORT}..."
-    (cd api && $UVICORN_CMD main:app --reload --port "$API_PORT") &
+    print_info "Starting Backend API on http://localhost:${API_PORT} [APP_ENV=${APP_ENV}]..."
+    (cd api && APP_ENV="$APP_ENV" PORT="$API_PORT" $UVICORN_CMD main:app --reload --port "$API_PORT") &
     API_PID=$!
 
     # Wait briefly for API initialization
     sleep 2
 
     # Start Frontend UI
-    print_info "Starting Frontend UI on http://localhost:${UI_PORT}..."
-    (cd ui && npm run dev -- --port "$UI_PORT") &
+    print_info "Starting Frontend UI on http://localhost:${UI_PORT} [VITE_APP_ENV=${VITE_APP_ENV}, VITE_API_URL=${VITE_API_URL}]..."
+    (cd ui && VITE_APP_ENV="$VITE_APP_ENV" VITE_API_URL="$VITE_API_URL" npm run dev -- --port "$UI_PORT") &
     UI_PID=$!
 
     echo ""
     print_success "Stack is running in [${APP_ENV^^}] mode!"
     echo "  - Environment: ${APP_ENV} (VITE_APP_ENV=${VITE_APP_ENV})"
     echo "  - Backend API: http://localhost:${API_PORT} (Health: http://localhost:${API_PORT}/health)"
-    echo "  - Frontend UI: http://localhost:${UI_PORT}"
+    echo "  - Frontend UI: http://localhost:${UI_PORT} (VITE_API_URL=${VITE_API_URL})"
     echo ""
     print_info "Press Ctrl+C to terminate both services."
     echo ""
@@ -190,7 +219,18 @@ case "$MODE" in
     --build|-b)
         run_docker true
         ;;
+    --prod)
+        APP_ENV="production"
+        DEFAULT_API_PORT=8000
+        API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
+        export VITE_API_URL="http://localhost:${API_PORT}"
+        run_local
+        ;;
     --local|-l|--dev)
+        APP_ENV="development"
+        DEFAULT_API_PORT=8001
+        API_PORT="${API_PORT:-$DEFAULT_API_PORT}"
+        export VITE_API_URL="http://localhost:${API_PORT}"
         run_local
         ;;
     --stop|-s)
@@ -200,12 +240,12 @@ case "$MODE" in
         show_help
         ;;
     "")
-        # Default behavior: prefer docker compose if docker is active, otherwise fallback to local
+        # Default behavior: prefer docker compose if docker is active, otherwise fallback to local dev
         if docker info >/dev/null 2>&1; then
-            print_info "Docker detected. Starting via Docker Compose (pass --local to run natively)..."
+            print_info "Docker detected. Starting via Docker Compose (pass --dev or --local to run natively)..."
             run_docker true
         else
-            print_info "Docker daemon not running. Falling back to local native execution..."
+            print_info "Docker daemon not running. Falling back to local native execution in [${APP_ENV^^}] mode..."
             run_local
         fi
         ;;

@@ -121,6 +121,14 @@ function Dashboard() {
     setLoading(true)
     setError(null)
 
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
+    const isProd =
+      import.meta.env.VITE_APP_ENV === 'production' ||
+      (!isLocalhost && !window.location.hostname.includes('-dev'))
+
     // Strategy 1: TanStack Start Server Function (runs in Node.js on UI server container)
     // Seamlessly connects via Render private networking to backend containers
     // (e.g. http://algo-trading-api-prod:8000 or http://algo-trading-api:8000),
@@ -139,12 +147,47 @@ function Dashboard() {
     } catch (serverErr: any) {
       console.warn('Server function fetch failed, trying direct client fetch fallback:', serverErr)
 
-      // Strategy 2: Client-side direct fetch fallback (for local development or direct public endpoints)
-      const urlsToTry = [
-        import.meta.env.VITE_API_URL,
-        'http://localhost:8001',
-        'http://localhost:8000',
-      ].filter(Boolean) as string[]
+      // Strategy 2: Client-side direct fetch fallback
+      const candidateUrls: (string | undefined)[] = []
+
+      // Configured env variable if available
+      if (import.meta.env.VITE_API_URL) {
+        candidateUrls.push(import.meta.env.VITE_API_URL)
+      }
+
+      if (isLocalhost) {
+        // Local Host Environment: check dev (:8001) vs prod (:8000)
+        if (isProd) {
+          candidateUrls.push('http://localhost:8000', 'http://127.0.0.1:8000', 'http://localhost:8001')
+        } else {
+          candidateUrls.push('http://localhost:8001', 'http://127.0.0.1:8001', 'http://localhost:8000')
+        }
+      } else {
+        // Cloud Deployed Environment (Render): NEVER check localhost
+        if (isProd) {
+          candidateUrls.push(
+            'https://algo-trading-api-prod.onrender.com',
+            'https://algo-trading-api.onrender.com'
+          )
+        } else {
+          candidateUrls.push(
+            'https://algo-trading-api-dev.onrender.com',
+            'https://algo-trading-api.onrender.com'
+          )
+        }
+      }
+
+      const urlsToTry = Array.from(
+        new Set(
+          candidateUrls.filter(Boolean).map((u) => {
+            let s = u!.trim()
+            if (!s.startsWith('http://') && !s.startsWith('https://')) {
+              s = `https://${s}`
+            }
+            return s.replace(/\/+$/, '')
+          })
+        )
+      )
 
       let lastErrMsg = serverErr?.message || ''
       for (const baseUrl of urlsToTry) {
@@ -185,6 +228,13 @@ function Dashboard() {
 
   const isPricePositive = (data?.price_change_pct ?? 0) >= 0
 
+  const isProductionEnv =
+    import.meta.env.VITE_APP_ENV === 'production' ||
+    (typeof window !== 'undefined' &&
+      !window.location.hostname.includes('localhost') &&
+      !window.location.hostname.includes('127.0.0.1') &&
+      !window.location.hostname.includes('-dev'))
+
   return (
     <div className="min-h-screen bg-[#060910] text-slate-100 flex flex-col font-sans">
       {/* Top Navbar */}
@@ -200,7 +250,7 @@ function Dashboard() {
                   AlgoTrading <span className="text-cyan-400">Terminal</span>
                 </span>
                 {/* Dynamic Environment Indicator */}
-                {import.meta.env.VITE_APP_ENV === 'production' ? (
+                {isProductionEnv ? (
                   <span
                     title="Production Environment (Branch: main)"
                     className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-500/20"
