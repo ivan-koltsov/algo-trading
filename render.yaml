@@ -44,7 +44,7 @@ services:
         fromService:
           type: web
           name: algo-trading-api-prod
-          property: host
+          property: hostport
 
   # ============================================================================
   # DEVELOPMENT / STAGING ENVIRONMENT (Branch: dev)
@@ -91,4 +91,4 @@ services:
         fromService:
           type: web
           name: algo-trading-api-dev
-          property: host
+          property: hostport
