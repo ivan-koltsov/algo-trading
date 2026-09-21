@@ -19,6 +19,7 @@ IS_DEVELOPMENT = not IS_PRODUCTION
 # Environment-aware CORS configuration
 if IS_PRODUCTION:
     CORS_ORIGINS: List[str] = [
+        "https://algo-trading-ui.onrender.com",
         "https://algo-trading-ui-prod.onrender.com",
         "https://algo-trading-ui-dev.onrender.com",
         "*",  # Allow cross-origin requests for cloud API access

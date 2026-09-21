@@ -9,6 +9,13 @@ RUN npm ci || npm install
 
 # Copy project files and build
 COPY . .
+
+# Build arguments for Vite compilation
+ARG VITE_API_URL
+ARG VITE_APP_ENV
+ENV VITE_API_URL=$VITE_API_URL \
+    VITE_APP_ENV=$VITE_APP_ENV
+
 RUN npm run build
 
 # Stage 2: Production runner
